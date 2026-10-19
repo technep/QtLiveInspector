@@ -1,0 +1,31 @@
+# QtLiveInspector — probe / inspector protocol
+#
+# Transport: TCP, newline-delimited JSON (one compact JSON object per line).
+# Default port: 17017 (override in the target with env QLI_PORT).
+# Optional shared secret: env QLI_TOKEN (client must send the same "token").
+#
+# Every request:  {"id": <int>, "cmd": "<command>", "token": "...", ...args}
+# Every response: {"id": <int>, "type": "response", "ok": true|false, ...}
+# Async events:   {"type": "event", "event": "<name>", ...}
+#
+# Commands (all object-addressing commands take either {"node": <id>} or
+# {"objectName": "<name>"} — the latter must match exactly one object):
+#   hello                     -> {app, qt, pid, probeVersion}
+#   tree                      -> {root: {id,name,className,address,children:[...]}}
+#                                id 0 is the virtual "Application" root.
+#   properties {node}         -> {properties: [{name,type,value,writable,notify,constant}]}
+#   setProperty {node,name,value} -> {value}   (re-read after write)
+#   invoke {node,method,args:[]}  -> calls an invokable method/slot with the
+#                                    given args; invoking a signal emits it
+#   click {node}                  -> QAbstractButton::animateClick() for widget
+#                                    buttons, else synthesized mouse press+
+#                                    release at the item/widget center
+#   locator {node}            -> {locator: "{...}"}   Squish-style object name
+#   highlight {node}          -> red rectangle overlay follows the item/widget
+#   clearHighlight {}
+#   watch {node}              -> subscribe to all NOTIFY signals of the object;
+#                                events: {event:"propertyChanged",node,property,value}
+#   unwatch {}
+#   pickStart {}              -> next click in the target UI is consumed and
+#                                reported as {event:"picked",node,path:[ids from root]}
+#   pickStop {}
