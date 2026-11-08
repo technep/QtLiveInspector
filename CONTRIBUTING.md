@@ -48,6 +48,30 @@ docker run --rm -v "$PWD":/src -w /src -u "$(id -u):$(id -g)" \
 The package list is a mirror of the install step in
 `.github/workflows/ci.yml` — keep the two in sync when dependencies change.
 
+## Cross-build the probe for ARM targets
+
+The probe and inputviz libraries are injected into the target
+application with `LD_PRELOAD`, so they must match the device's
+architecture. `Dockerfile.probe` cross-compiles both for `arm64`
+(aarch64) and `armhf` (ARMv7 hard-float) from an x86_64 host, using
+Ubuntu's multiarch Qt packages:
+
+```bash
+docker build -f Dockerfile.probe -t qli-probe-cross .
+mkdir -p dist && docker run --rm -v "$PWD":/src:ro -v "$PWD/dist":/out \
+    -e QLI_BUILD_ROOT=/tmp/builds -w /src \
+    qli-probe-cross docker/cross-build.sh /out
+# dist/arm64/libqtinspectorprobe.so, libqtinspectorinputviz.so
+# dist/armhf/libqtinspectorprobe.so, libqtinspectorinputviz.so
+```
+
+`docker/cross-build.sh` also runs outside Docker on any Debian/Ubuntu
+host with the cross gccs and `qt6-base-dev:<arch>` /
+`qt6-declarative-dev:<arch>` installed. The image is based on Ubuntu
+22.04 so the libraries need only glibc 2.35 (jammy's Qt 6.2.4 is the
+project's minimum); inject them only into target apps built against a
+compatible Qt 6.
+
 ## Style
 
 - C++: C++17, Qt-style API usage, 4-space indent, 80 columns. A

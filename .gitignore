@@ -17,6 +17,9 @@ __pycache__/
 bdd-report/
 Testing/
 
+# Cross-build artifacts (Dockerfile.probe)
+dist/
+
 # Editors / OS
 .vscode/
 .idea/

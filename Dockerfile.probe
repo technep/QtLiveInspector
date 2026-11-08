@@ -1,0 +1,41 @@
+# Cross-builds the probe and inputviz libraries for ARM targets on an
+# x86_64 host: libqtinspectorprobe.so and libqtinspectorinputviz.so for
+# aarch64 (arm64) and armv7 hard-float (armhf). These are the libraries
+# you LD_PRELOAD into a target application, so they must match the
+# target device's architecture and Qt.
+#
+# Usage (see CONTRIBUTING.md):
+#   docker build -f Dockerfile.probe -t qli-probe-cross .
+#   mkdir -p dist && docker run --rm -v "$PWD":/src:ro -v "$PWD/dist":/out \
+#       -e QLI_BUILD_ROOT=/tmp/builds -w /src \
+#       qli-probe-cross docker/cross-build.sh /out
+#
+# Artifacts land in dist/arm64/ and dist/armhf/.
+# jammy, not noble: the libraries must load on target devices with older
+# glibc (2.35), and jammy's distro Qt (6.2.4) is the project's minimum.
+# jammy's apt uses the classic one-line sources.list (noble uses deb822).
+FROM ubuntu:22.04
+
+# archive.ubuntu.com carries only x86; the ARM ports live on
+# ports.ubuntu.com. Pin each entry to the architectures it serves,
+# otherwise apt requests nonexistent ARM indexes and fails.
+RUN dpkg --add-architecture arm64 && dpkg --add-architecture armhf \
+    && rm -f /etc/apt/sources.list.d/*.sources \
+    && printf '%s\n' \
+        'deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy main restricted universe multiverse' \
+        'deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-updates main restricted universe multiverse' \
+        'deb [arch=arm64,armhf] http://ports.ubuntu.com/ubuntu-ports jammy main universe' \
+        'deb [arch=arm64,armhf] http://ports.ubuntu.com/ubuntu-ports jammy-updates main universe' \
+        > /etc/apt/sources.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        cmake ninja-build \
+        python3 \
+        g++-aarch64-linux-gnu \
+        g++-arm-linux-gnueabihf \
+        libgl-dev:arm64 libegl-dev:arm64 \
+        libgl-dev:armhf libegl-dev:armhf \
+        libqt6opengl6-dev:arm64 libxkbcommon-dev:arm64 \
+        libqt6opengl6-dev:armhf libxkbcommon-dev:armhf \
+        qt6-base-dev:arm64 qt6-declarative-dev:arm64 \
+        qt6-base-dev:armhf qt6-declarative-dev:armhf \
+    && rm -rf /var/lib/apt/lists/*
