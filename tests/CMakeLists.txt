@@ -2,13 +2,6 @@ cmake_minimum_required(VERSION 3.19)
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
-# Tool-dependent tests below (smoke run, probe integration) import the CLI
-# tools tree; they are only registered when it is part of the checkout.
-set(QLI_HAVE_TOOLS FALSE)
-if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../tools/probeclient.py)
-    set(QLI_HAVE_TOOLS TRUE)
-endif()
-
 # -- C++ unit tests ----------------------------------------------------------
 
 add_executable(test_jsonutil
@@ -52,7 +45,7 @@ if(CMAKE_CXX_FLAGS MATCHES "-fsanitize=address")
     execute_process(COMMAND ${CMAKE_CXX_COMPILER} -print-file-name=libasan.so
         OUTPUT_VARIABLE QLI_LIBASAN OUTPUT_STRIP_TRAILING_WHITESPACE)
     if(QLI_LIBASAN AND NOT QLI_LIBASAN STREQUAL "libasan.so"
-       AND EXISTS ${QLI_LIBASAN})
+       AND EXISTS "${QLI_LIBASAN}")
         string(APPEND QLI_TEST_PRELOAD_EXTRA "${QLI_LIBASAN}")
     endif()
 endif()
@@ -60,22 +53,20 @@ if(CMAKE_CXX_FLAGS MATCHES "-fsanitize=undefined")
     execute_process(COMMAND ${CMAKE_CXX_COMPILER} -print-file-name=libubsan.so
         OUTPUT_VARIABLE QLI_LIBUBSAN OUTPUT_STRIP_TRAILING_WHITESPACE)
     if(QLI_LIBUBSAN AND NOT QLI_LIBUBSAN STREQUAL "libubsan.so"
-       AND EXISTS ${QLI_LIBUBSAN})
+       AND EXISTS "${QLI_LIBUBSAN}")
         string(APPEND QLI_TEST_PRELOAD_EXTRA ":${QLI_LIBUBSAN}")
     endif()
 endif()
 
 # -- Python tool smoke tests (no Qt application needed) ----------------------
 
-if(QLI_HAVE_TOOLS)
-    add_test(NAME ToolSmokeTest
-        COMMAND Python3::Interpreter ${CMAKE_CURRENT_SOURCE_DIR}/smoke_tools.py)
-    set_tests_properties(ToolSmokeTest PROPERTIES TIMEOUT 120)
-endif()
+add_test(NAME ToolSmokeTest
+    COMMAND Python3::Interpreter ${CMAKE_CURRENT_SOURCE_DIR}/smoke_tools.py)
+set_tests_properties(ToolSmokeTest PROPERTIES TIMEOUT 120)
 
 # -- Probe integration tests (real probe injected into the sample app) -------
 
-if(QLI_HAVE_TOOLS AND TARGET quickdemo AND TARGET qtinspectorprobe)
+if(TARGET quickdemo AND TARGET qtinspectorprobe)
     # Ports are fixed (not ephemeral) so the runner and client agree;
     # RUN_SERIAL keeps the three runs from colliding.
     add_test(NAME ProbeIntegration_basic

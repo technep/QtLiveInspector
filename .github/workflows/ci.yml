@@ -92,10 +92,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # tools/ is a separate history state; lint it only once it exists.
       - uses: astral-sh/ruff-action@v3
         with:
-          args: "check tests/"
+          args: "check tools/ tests/"
 
   package:
     runs-on: ubuntu-latest

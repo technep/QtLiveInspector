@@ -11,17 +11,14 @@ set(CMAKE_AUTOMOC ON)
 
 # The Python tools carry their own copy of the version (tools/qli_version.py)
 # because they may run from source; fail configure loudly when it drifts from
-# the CMake project version. Only enforced when the tools tree is present —
-# the unit-test state of this history doesn't carry it.
-if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tools/qli_version.py)
-    file(READ ${CMAKE_CURRENT_SOURCE_DIR}/tools/qli_version.py QLI_VERSION_PY)
-    string(REGEX MATCH "__version__ = \"([0-9]+\\.[0-9]+\\.[0-9]+)\"" _qli_ver
-           "${QLI_VERSION_PY}")
-    if(NOT CMAKE_MATCH_1 STREQUAL PROJECT_VERSION)
-        message(FATAL_ERROR
-            "tools/qli_version.py (${CMAKE_MATCH_1}) does not match the CMake "
-            "project version (${PROJECT_VERSION})")
-    endif()
+# the CMake project version.
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/tools/qli_version.py QLI_VERSION_PY)
+string(REGEX MATCH "__version__ = \"([0-9]+\\.[0-9]+\\.[0-9]+)\"" _qli_ver
+       "${QLI_VERSION_PY}")
+if(NOT CMAKE_MATCH_1 STREQUAL PROJECT_VERSION)
+    message(FATAL_ERROR
+        "tools/qli_version.py (${CMAKE_MATCH_1}) does not match the CMake "
+        "project version (${PROJECT_VERSION})")
 endif()
 
 option(QLI_BUILD_SAMPLES "Build the sample target application" ON)
@@ -53,7 +50,7 @@ endif()
 add_subdirectory(tests)
 
 # -- installation ------------------------------------------------------------
-# The tools tree is a separate history state; install it when present.
+
 include(GNUInstallDirs)
 
 install(TARGETS qtinspectorprobe
@@ -65,23 +62,16 @@ install(TARGETS qtinspectorinputviz
 install(TARGETS qtliveinspector
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     COMPONENT inspector)
-if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tools/qli_cli.py)
-    install(PROGRAMS
-        tools/qli_cli.py
-        tools/qli_mcp.py
-        tools/qli_monkey.py
-        tools/qli_bdd.py
-        tools/probeclient.py
-        tools/qli_version.py
-        DESTINATION ${CMAKE_INSTALL_BINDIR}
-        COMPONENT tools)
-endif()
-if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/README.md)
-    install(FILES README.md
-        DESTINATION ${CMAKE_INSTALL_DOCDIR}
-        COMPONENT docs)
-endif()
-install(FILES protocol.txt
+install(PROGRAMS
+    tools/qli_cli.py
+    tools/qli_mcp.py
+    tools/qli_monkey.py
+    tools/qli_bdd.py
+    tools/probeclient.py
+    tools/qli_version.py
+    DESTINATION ${CMAKE_INSTALL_BINDIR}
+    COMPONENT tools)
+install(FILES protocol.txt README.md
     DESTINATION ${CMAKE_INSTALL_DOCDIR}
     COMPONENT docs)
 
