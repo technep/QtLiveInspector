@@ -1,0 +1,11 @@
+# Code style for the C++ sources (probe/, inputviz/, inspector/, samples/,
+# tests/). Advisory — CI does not reformat or fail on style; keep new code
+# consistent with the surrounding files.
+BasedOnStyle: LLVM
+IndentWidth: 4
+ColumnLimit: 80
+BreakBeforeBraces: Linux
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+PointerAlignment: Right

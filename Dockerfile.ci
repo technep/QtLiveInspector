@@ -1,0 +1,26 @@
+# Reproduces the GitHub Actions CI environment locally: ubuntu-latest is
+# Ubuntu 24.04 with the distro Qt (6.4). CI itself does NOT use this file —
+# it installs the same packages in .github/workflows/ci.yml, so keep the
+# two package lists in sync. This image additionally ships dpkg-dev for the
+# packaging job (dpkg-shlibdeps), which CI's hosted runners preinstall.
+#
+# Usage (see CONTRIBUTING.md). Run as the invoking user so the Python smoke
+# test's bytecode caches land in the working tree with your own uid; HOME
+# must be writable for Qt's cache:
+#   docker build -f Dockerfile.ci -t qli-ci .
+#   docker run --rm -v "$PWD":/src -w /src -u "$(id -u):$(id -g)" \
+#       -e HOME=/tmp qli-ci bash -c \
+#       "cmake -G Ninja -B /tmp/build && cmake --build /tmp/build -j \
+#        && ctest --test-dir /tmp/build --output-on-failure"
+FROM ubuntu:24.04
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cmake ninja-build g++ \
+    qt6-base-dev qt6-declarative-dev \
+    qml6-module-qtquick qml6-module-qtquick-window \
+    qml6-module-qtquick-controls qml6-module-qtquick-layouts \
+    qml6-module-qtquick-shapes qml6-module-qtquick-templates \
+    qml6-module-qtqml-workerscript \
+    python3 \
+    dpkg-dev \
+    && rm -rf /var/lib/apt/lists/*

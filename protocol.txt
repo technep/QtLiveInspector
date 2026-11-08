@@ -1,0 +1,89 @@
+# QtLiveInspector — probe / inspector protocol
+#
+# Transport: TCP, newline-delimited JSON (one compact JSON object per line).
+# Default port: 17017 (override in the target with env QLI_PORT).
+# Default bind: 127.0.0.1 only (env QLI_HOST="any" or a specific address opts
+# into external interfaces). See README "Security".
+#
+# Auth (since probe 0.2): if env QLI_TOKEN is set, clients must send the same
+# "token" with every request. If QLI_TOKEN is NOT set, the probe generates a
+# random token on startup and prints it once to the target's log. An
+# explicitly empty QLI_TOKEN selects development no-auth mode (logged loudly).
+#
+# Read-only mode (env QLI_READONLY=1): only the commands marked [ro] below are
+# accepted; every other command fails with
+#   {"ok": false, "error": "read-only mode: command '<cmd>' is not permitted"}
+#
+# Limits: max message size 8 MiB per line; a client exceeding it is
+# disconnected. Malformed input gets {"ok": false, "error": "malformed JSON"}.
+#
+# Versioning: the wire protocol version is "1.1" (major.minor). Clients should
+# send their version in "hello"; a major-version mismatch fails the handshake
+# with an explicit "protocol version mismatch" error. Responses always carry
+# the probe's "protocolVersion". 1.1 added mouseDown / mouseUp / mouseMove.
+#
+# Every request:  {"id": <int>, "cmd": "<command>", "token": "...", ...args}
+# Every response: {"id": <int>, "type": "response", "ok": true|false, ...}
+# Async events:   {"type": "event", "event": "<name>", ...}
+#
+# Commands (all object-addressing commands take either {"node": <id>} or
+# {"objectName": "<name>"} — the latter must match exactly one object):
+#   hello {protocolVersion?} [ro]
+#                               -> {app, qt, pid, probeVersion, protocolVersion}
+#   tree                      [ro]
+#                               -> {root: {id,name,className,address,children:[...]}}
+#                                id 0 is the virtual "Application" root.
+#   properties {node}         [ro]
+#                               -> {properties: [{name,type,value,writable,notify,constant}]}
+#   setProperty {node,name,value} -> {value}   (re-read after write)
+#   invoke {node,method,args:[]}  -> calls an invokable method/slot with the
+#                                    given args; invoking a signal emits it
+#   click {node}                  -> QAbstractButton::animateClick() for widget
+#                                    buttons, else synthesized mouse press+
+#                                    release at the item/widget center
+#   mouseDown {node}              -> synthesized MouseButtonPress at the
+#                                    item/widget center, WITHOUT a release —
+#                                    opens ComboBox popups without selecting,
+#                                    holds a slider handle, etc. The probe
+#                                    remembers the position for mouseUp.
+#   mouseUp {node?}               -> synthesized MouseButtonRelease; without a
+#                                    target, releases at the last mouseDown.
+#   mouseMove {x,y,buttons?}      -> synthesized MouseMove at GLOBAL (x,y);
+#                                    "buttons":"Left|Right|Middle" for drags.
+#                                    Delivered to the window under the point.
+#                                    Alternatively {node|objectName,dx?,dy?}:
+#                                    the target's center plus an item-space
+#                                    offset, converted with the app's own
+#                                    transform chain — robust where external
+#                                    and Qt-internal global frames disagree
+#                                    (e.g. XWayland).
+#   typeText {node,text}          -> focuses the item/widget, then synthesizes
+#                                    key press/release pairs for each character
+#   locator {node}            [ro]
+#                               -> {locator: "{...}"}   Squish-style object name
+#   highlight {node}          -> red rectangle overlay follows the item/widget
+#   clearHighlight {}
+#   setInputVisualizer {enabled:true|false, multiTouch?} -> touch & mouse
+#                               visualization: a circle pops in on press,
+#                               follows the touch (no move animation), turns
+#                               orange after a press-and-hold (600 ms), and
+#                               ripples out on release. By default only the
+#                               first touch is shown; multiTouch:true (or env
+#                               QLI_INPUT_VIZ_MULTITOUCH=1) tracks every finger.
+#   perfStats {}              [ro]
+#                               -> {fps, eventLoopDelayMs, qobjectCount, windowCount, isIdle}
+#   isIdle {maxDelayMs:25.0}  [ro]
+#                               -> {idle: true|false, eventLoopDelayMs}
+#   watch {node}              -> subscribe to all NOTIFY signals of the object;
+#                                events: {event:"propertyChanged",node,property,value}
+#   unwatch {}
+#   pickStart {}              -> next click in the target UI is consumed and
+#                                reported as {event:"picked",node,path:[ids from root]}
+#   pickStop {}
+#   screenshot {node?|objectName?} [ro]
+#                               -> {png: <base64>, width, height} — grabs the
+#                                given window/item/widget, or the first visible
+#                                window when no target is given
+#
+# Audit: every non-[ro] command that passes auth is logged to the target's
+# log as "[QtInspector] AUDIT <peer> cmd=<cmd> <target>".

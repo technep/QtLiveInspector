@@ -1,0 +1,4 @@
+# The local CI image (Dockerfile.ci) carries the toolchain only; the
+# sources are mounted at run time. Keep the build context small.
+.git
+build*/

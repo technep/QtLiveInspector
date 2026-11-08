@@ -1,0 +1,13 @@
+# Ruff configuration for the Python tooling (tools/, tests/).
+# Kept conservative: pyflakes + pycodestyle errors. Formatting is NOT
+# enforced (the codebase predates ruff format; imposing it would rewrite
+# every file for no functional gain).
+[tool.ruff]
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+# stub intentionally looks minimal
+"tests/stub_probe.py" = []

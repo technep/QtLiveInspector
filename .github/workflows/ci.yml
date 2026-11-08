@@ -1,0 +1,127 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Package list mirrored by Dockerfile.ci (local reproduction of this
+      # environment) — keep the two in sync. Keep the run block itself free
+      # of '#' comments: it is one backslash-continued shell command.
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build g++ \
+            qt6-base-dev qt6-declarative-dev \
+            qml6-module-qtquick qml6-module-qtquick-window \
+            qml6-module-qtquick-controls qml6-module-qtquick-layouts \
+            qml6-module-qtquick-shapes qml6-module-qtquick-templates \
+            qml6-module-qtqml-workerscript \
+            python3
+
+      - name: Configure
+        run: cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  warnings-as-errors:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build g++ \
+            qt6-base-dev qt6-declarative-dev
+
+      - name: Configure
+        run: cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release
+          -DQLI_WARNINGS_AS_ERRORS=ON
+
+      - name: Build
+        run: cmake --build build -j
+
+  sanitizers:
+    runs-on: ubuntu-latest
+    env:
+      ASAN_OPTIONS: detect_leaks=0:abort_on_error=1
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+    steps:
+      - uses: actions/checkout@v4
+
+      # Same split-out QML module packages as the build-and-test job above.
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build g++ \
+            qt6-base-dev qt6-declarative-dev \
+            qml6-module-qtquick qml6-module-qtquick-window \
+            qml6-module-qtquick-controls qml6-module-qtquick-layouts \
+            qml6-module-qtquick-shapes qml6-module-qtquick-templates \
+            qml6-module-qtqml-workerscript \
+            python3
+
+      - name: Configure
+        run: cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+          -DCMAKE_MODULE_LINKER_FLAGS="-fsanitize=address,undefined"
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  python-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # tools/ is a separate history state; lint it only once it exists.
+      - uses: astral-sh/ruff-action@v3
+        with:
+          args: "check tests/"
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build g++ \
+            qt6-base-dev qt6-declarative-dev
+
+      # Ubuntu runners use the distro Qt, so dpkg-shlibdeps can resolve it
+      # and the .deb gets real dependency metadata.
+      - name: Configure
+        run: cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release
+          -DQLI_PACKAGE_DEB=ON
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Package
+        run: cmake --build build --target package
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: build/QtLiveInspector-*.tar.gz

@@ -1,0 +1,27 @@
+# Build output
+build/
+build-*/
+cmake-build-*/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Qt Creator
+.qtcreator/
+*.user
+*.user.*
+
+# Test artifacts
+bdd-report/
+Testing/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Local AI-assistant skill data (kept out of the published repo)
+.kimi/
