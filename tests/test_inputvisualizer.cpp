@@ -10,6 +10,9 @@
 #include <QApplication>
 #include <QInputDevice>
 #include <QMouseEvent>
+#include <QQmlApplicationEngine>
+#include <QQuickItem>
+#include <QQuickWindow>
 #include <QTouchEvent>
 #include <QTest>
 
@@ -18,6 +21,7 @@
 // corrupt Qt headers here.
 #define private public
 #include "InputVisualizer.h"
+#include "QuickTouchOverlay.h"
 #undef private
 
 static QMouseEvent mouseEvent(QEvent::Type type, const QPointF &global,
@@ -220,6 +224,64 @@ private slots:
         QVERIFY(!viz.isMonkeyMode());
         QVERIFY(viz.m_monkeyImage.isNull()
                || !viz.m_widgetOverlay); // circles again on next paint
+    }
+
+    void rotatedQuickRootKeepsMarkerUnderFinger()
+    {
+        // When the scene root is rotated (or otherwise transformed), the
+        // overlay inherits that transform. InputVisualizer must hand it
+        // overlay-LOCAL coordinates (scene positions mapped through the
+        // item chain in pushPoints) — otherwise the marker is drawn away
+        // from the physical touch, potentially off-window. Regression
+        // test for that report.
+        //
+        // A real QML Window is used (a bare QQuickWindow never integrates
+        // dynamically-added items into its scene graph). The assertion is
+        // geometric — which points the overlay receives — rather than
+        // pixel-based: offscreen frame presentation is too racy for a
+        // stable pixel check.
+        QQmlApplicationEngine engine;
+        engine.loadData(
+            "import QtQuick\n"
+            "Window { width: 300; height: 400; visible: true }\n");
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto *window = qobject_cast<QQuickWindow *>(
+            engine.rootObjects().constFirst());
+        QVERIFY(window);
+        QTest::qWait(50); // let the window settle (no rendering needed)
+
+        InputVisualizer viz;
+        viz.setEnabled(true);
+
+        auto overlayPosFor = [&](const QPointF &scenePos) -> QPointF {
+            QMouseEvent press(QEvent::MouseButtonPress, scenePos, scenePos,
+                              scenePos, Qt::LeftButton, Qt::LeftButton,
+                              Qt::NoModifier);
+            QCoreApplication::sendEvent(window, &press);
+            viz.ensureOverlay();  // create the overlay synchronously
+            viz.pushPoints();     // hand the point to the overlay now
+            return viz.m_quickOverlay->m_points[0].pos;
+        };
+
+        const QPointF touch(200, 150);
+        const auto near = [](const QPointF &a, const QPointF &b) {
+            return qAbs(a.x() - b.x()) < 0.01 && qAbs(a.y() - b.y()) < 0.01;
+        };
+
+        // Identity transform: overlay-local == scene coordinates.
+        const QPointF identityPos = overlayPosFor(touch);
+        QCOMPARE(viz.m_points.size(), 1);
+        QVERIFY2(near(identityPos, touch),
+                 "unrotated root must keep scene coordinates");
+
+        // Rotated root: the overlay must receive the point mapped into
+        // its local system — that is what puts the marker back under the
+        // physical finger when rendered.
+        window->contentItem()->setTransformOrigin(QQuickItem::TopLeft);
+        window->contentItem()->setRotation(270);
+        const QPointF rotatedPos = overlayPosFor(touch);
+        QVERIFY2(near(rotatedPos, window->contentItem()->mapFromScene(touch)),
+                 "rotated root must map scene positions to overlay-local");
     }
 };
 

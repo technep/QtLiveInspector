@@ -16,6 +16,7 @@ add_library(qtinspectorprobe MODULE
     SquishLocator.cpp
     InputVisualizer.h
     InputVisualizer.cpp
+    QuickTouchOverlay.h
     PerfMonitor.h
     PerfMonitor.cpp
 )

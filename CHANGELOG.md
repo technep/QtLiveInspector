@@ -14,6 +14,15 @@ negotiated in the `hello` handshake.
   the standalone `libqtinspectorinputviz.so` (where the visualizer still
   defaults to on). New ctest case `ProbeIntegration_vizenv`.
 
+### Fixed
+
+- **Input overlay position under rotated scene roots**: with the
+  `QQuickRootItem` rotated (software display rotation on embedded
+  targets, e.g. 270°), the touch marker was drawn rotated away from the
+  finger, typically off-window. InputVisualizer now maps scene
+  coordinates into the overlay's local coordinate system before
+  handing points over.
+
 ## [0.3.0] — 2026-11-07
 
 ### Added

@@ -1,4 +1,5 @@
 #include "InputVisualizer.h"
+#include "QuickTouchOverlay.h"
 
 #include <QApplication>
 #include <QDateTime>
@@ -80,47 +81,8 @@ private:
     QImage m_monkey;
 };
 
-// Lightweight scene-graph touch overlay: one indexed triangle list per
-// circle with per-vertex alpha feathering — the polygon silhouette is
-// hidden by the edge gradient, so circles read as smooth without any
-// texture, QPainter pass, or full-window render target. Suitable for
-// embedded targets.
-class QuickTouchOverlay : public QQuickItem
-{
-public:
-    explicit QuickTouchOverlay(QQuickItem *parent = nullptr) : QQuickItem(parent)
-    {
-        setObjectName(QStringLiteral("__qtinspector_touch_overlay"));
-        // QQuickOverlay (dialogs/popups/dropdowns) sits at z=1000001 —
-        // stay above it so ripples are visible over popup overlays.
-        setZ(1000000000.0);
-        setAcceptedMouseButtons(Qt::NoButton);
-        setAcceptTouchEvents(false);
-        setAcceptHoverEvents(false);
-        setFlag(ItemHasContents, true);
-    }
-
-    void setPoints(const QList<TouchPointRecord> &pts)
-    {
-        // InputVisualizer delivers SCENE coordinates for the Qt Quick path
-        // (the only frame immune to global/window-frame confusion). This
-        // item sits at the contentItem origin with no transform, so scene
-        // coordinates ARE item-local — no mapping here. GUI thread only.
-        m_points = pts;
-        update();
-    }
-
-    // Null image = circle mode. Own copy: the item can outlive the
-    // visualizer during application teardown.
-    void setMonkeyImage(const QImage &img) { m_monkey = img; update(); }
-
-protected:
-    QSGNode *updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *) override;
-
-private:
-    QList<TouchPointRecord> m_points;
-    QImage m_monkey;
-};
+// The overlay class itself lives in QuickTouchOverlay.h so tests can
+// assert the scene->local coordinate contract of setPoints().
 
 namespace {
 
@@ -239,6 +201,33 @@ QImage makeMonkeyImage()
 }
 
 } // namespace
+
+QuickTouchOverlay::QuickTouchOverlay(QQuickItem *parent) : QQuickItem(parent)
+{
+    setObjectName(QStringLiteral("__qtinspector_touch_overlay"));
+    // QQuickOverlay (dialogs/popups/dropdowns) sits at z=1000001 —
+    // stay above it so ripples are visible over popup overlays.
+    setZ(1000000000.0);
+    setAcceptedMouseButtons(Qt::NoButton);
+    setAcceptTouchEvents(false);
+    setAcceptHoverEvents(false);
+    setFlag(ItemHasContents, true);
+}
+
+void QuickTouchOverlay::setPoints(const QList<TouchPointRecord> &pts)
+{
+    // InputVisualizer delivers points in THIS ITEM's local coordinates
+    // (scene coordinates mapped through the item chain in pushPoints —
+    // required when the scene root is rotated). GUI thread only.
+    m_points = pts;
+    update();
+}
+
+void QuickTouchOverlay::setMonkeyImage(const QImage &img)
+{
+    m_monkey = img;
+    update();
+}
 
 QSGNode *QuickTouchOverlay::updatePaintNode(QSGNode *oldNode,
                                             UpdatePaintNodeData *)
@@ -405,7 +394,16 @@ void InputVisualizer::pushPoints()
     if (m_quickOverlay) {
         if (QQuickItem *parent = m_quickOverlay->parentItem())
             m_quickOverlay->setSize(parent->size());
-        m_quickOverlay->setPoints(m_points);
+        // Points arrive as SCENE coordinates. With an untransformed
+        // contentItem that equals overlay-local coordinates — but embedded
+        // targets often rotate the scene root (QQuickRootItem) by
+        // 90/180/270° for software display rotation, and the overlay
+        // inherits that transform. Map each point into the overlay's local
+        // system so the marker stays under the physical finger.
+        QList<TouchPointRecord> local = m_points;
+        for (auto &pt : local)
+            pt.pos = m_quickOverlay->mapFromScene(pt.pos);
+        m_quickOverlay->setPoints(local);
     }
 }
 
