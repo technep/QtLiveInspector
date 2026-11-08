@@ -300,10 +300,14 @@ void InputVisualizer::setEnabled(bool enabled)
         return;
     m_enabled = enabled;
     if (m_enabled) {
-        qApp->installEventFilter(this);
+        // QCoreApplication::instance(), NOT qApp: quickdemo-style targets
+        // run QGuiApplication, and the qApp macro downcasts to QApplication
+        // — UB caught by UBSan (vptr) with -fsanitize=undefined. The
+        // filter only needs QObject, which every app type is.
+        QCoreApplication::instance()->installEventFilter(this);
         // The animation timer is started on demand by trackPoint/releasePoint.
     } else {
-        qApp->removeEventFilter(this);
+        QCoreApplication::instance()->removeEventFilter(this);
         m_animTimer.stop();
         m_points.clear();
         m_activeId = -1;
@@ -409,7 +413,12 @@ void InputVisualizer::pushPoints()
 
 void InputVisualizer::ensureOverlay()
 {
-    const QWidgetList tops = QApplication::topLevelWidgets();
+    // topLevelWidgets() is a QApplication API; pure QGuiApplication targets
+    // (Qt Quick only) have no widgets — don't even ask.
+    const QWidgetList tops =
+        qobject_cast<QApplication *>(QCoreApplication::instance())
+            ? QApplication::topLevelWidgets()
+            : QWidgetList{};
     QWidget *activeTop = nullptr;
     for (QWidget *w : tops) {
         if (w->isVisible()) {

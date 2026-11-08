@@ -22,6 +22,14 @@ negotiated in the `hello` handshake.
   finger, typically off-window. InputVisualizer now maps scene
   coordinates into the overlay's local coordinate system before
   handing points over.
+- **UBSan `vptr` failure on Qt Quick-only targets**: `InputVisualizer`
+  and `Picker` installed their event filters through the `qApp` macro,
+  which downcasts to `QApplication` — UB under `QGuiApplication`
+  (quickdemo-style apps), aborting sanitizer builds as soon as the
+  visualizer was enabled at startup (`QLI_INPUT_VIZ=1`). Both now use
+  `QCoreApplication::instance()`; `ensureOverlay()` also skips the
+  `QApplication::topLevelWidgets()` query when no `QApplication`
+  exists.
 
 ## [0.3.0] — 2026-11-07
 

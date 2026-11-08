@@ -16,7 +16,9 @@ void Picker::start()
     if (m_active)
         return;
     m_active = true;
-    qApp->installEventFilter(this);
+    // QCoreApplication::instance(), NOT qApp: pure Qt Quick targets run
+    // QGuiApplication and the qApp macro downcasts to QApplication (UB).
+    QCoreApplication::instance()->installEventFilter(this);
     QGuiApplication::setOverrideCursor(QCursor(Qt::CrossCursor));
 }
 
@@ -25,7 +27,7 @@ void Picker::stop()
     if (!m_active)
         return;
     m_active = false;
-    qApp->removeEventFilter(this);
+    QCoreApplication::instance()->removeEventFilter(this);
     QGuiApplication::restoreOverrideCursor();
     emit stopped();
 }
