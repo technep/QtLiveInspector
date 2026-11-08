@@ -47,15 +47,13 @@ find_package(Qt6 6.2 REQUIRED COMPONENTS Core Gui Widgets Network Quick QuickCon
 add_subdirectory(probe)
 add_subdirectory(inputviz)
 add_subdirectory(inspector)
-# Samples are a separate history state; build them when the tree is there.
-if(QLI_BUILD_SAMPLES AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/samples/CMakeLists.txt)
+if(QLI_BUILD_SAMPLES)
     add_subdirectory(samples)
 endif()
 add_subdirectory(tests)
 
 # -- installation ------------------------------------------------------------
-# README.md and the tools land in the documentation / CLI states; install
-# whatever of it exists in this tree.
+# The tools tree is a separate history state; install it when present.
 include(GNUInstallDirs)
 
 install(TARGETS qtinspectorprobe

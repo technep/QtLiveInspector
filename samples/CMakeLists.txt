@@ -1,0 +1,3 @@
+add_subdirectory(quickdemo)
+add_subdirectory(quickviewdemo)
+add_subdirectory(widgetdemo)
