@@ -268,20 +268,22 @@ private slots:
             return qAbs(a.x() - b.x()) < 0.01 && qAbs(a.y() - b.y()) < 0.01;
         };
 
-        // Identity transform: overlay-local == scene coordinates.
-        const QPointF identityPos = overlayPosFor(touch);
-        QCOMPARE(viz.m_points.size(), 1);
-        QVERIFY2(near(identityPos, touch),
-                 "unrotated root must keep scene coordinates");
-
-        // Rotated root: the overlay must receive the point mapped into
-        // its local system — that is what puts the marker back under the
-        // physical finger when rendered.
+        // Every cardinal rotation: the overlay must receive the point
+        // mapped into its local system — that is what puts the marker
+        // back under the physical finger when rendered. (mapFromScene
+        // covers arbitrary transform chains; these four are the cases
+        // display rotation actually uses.)
         window->contentItem()->setTransformOrigin(QQuickItem::TopLeft);
-        window->contentItem()->setRotation(270);
-        const QPointF rotatedPos = overlayPosFor(touch);
-        QVERIFY2(near(rotatedPos, window->contentItem()->mapFromScene(touch)),
-                 "rotated root must map scene positions to overlay-local");
+        for (const qreal angle : {0.0, 90.0, 180.0, 270.0}) {
+            window->contentItem()->setRotation(angle);
+            const QPointF got = overlayPosFor(touch);
+            QCOMPARE(viz.m_points.size(), 1);
+            QVERIFY2(near(got, window->contentItem()->mapFromScene(touch)),
+                     qPrintable(QStringLiteral(
+                                    "rotation %1: overlay must receive "
+                                    "mapFromScene(position)")
+                                    .arg(angle)));
+        }
     }
 };
 
