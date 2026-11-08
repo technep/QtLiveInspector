@@ -87,8 +87,14 @@ if(TARGET quickdemo AND TARGET qtinspectorprobe)
             --demo $<TARGET_FILE:quickdemo>
             --probe-so $<TARGET_FILE:qtinspectorprobe>
             --port 17319 --mode noauth)
+    add_test(NAME ProbeIntegration_vizenv
+        COMMAND Python3::Interpreter
+            ${CMAKE_CURRENT_SOURCE_DIR}/integration_probe.py
+            --demo $<TARGET_FILE:quickdemo>
+            --probe-so $<TARGET_FILE:qtinspectorprobe>
+            --port 17322 --mode vizenv --set QLI_INPUT_VIZ=1)
     set_tests_properties(ProbeIntegration_basic ProbeIntegration_readonly
-        ProbeIntegration_noauth PROPERTIES
+        ProbeIntegration_noauth ProbeIntegration_vizenv PROPERTIES
         RUN_SERIAL TRUE TIMEOUT 90
         ENVIRONMENT "QLI_TEST_PRELOAD_EXTRA=${QLI_TEST_PRELOAD_EXTRA}")
 

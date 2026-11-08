@@ -144,6 +144,7 @@ no Qt Quick dependency in the app itself.
 | `QLI_HOST` | `127.0.0.1` | bind address — `"any"` or `0.0.0.0` exposes the probe on all interfaces (see **Security**) |
 | `QLI_TOKEN` | *(auto)* | shared secret. Unset → a random token is generated and printed once to the target's log; explicitly empty → no auth, development only |
 | `QLI_READONLY` | *(off)* | `"1"` = read-only mode: tree/properties/screenshot/perf/locator allowed, every mutating command rejected |
+| `QLI_INPUT_VIZ` | *(off)* | `"1"` = show the input overlay from startup, without a client connection (the standalone `libqtinspectorinputviz.so` defaults it **on** and uses `QLI_INPUT_VIZ=0` to disable) |
 | `QLI_INPUT_VIZ_MULTITOUCH` | *(off)* | `"1"` = input visualizer tracks all simultaneous touches (default: first touch only) |
 | `QLI_INPUT_VIZ_MONKEY` | *(off)* | `"1"` = input visualizer draws a monkey head instead of the circle (fun mode for `qli_monkey.py` runs; also switchable at runtime via `setInputVisualizer {monkey:true}`) |
 

@@ -7,6 +7,13 @@ negotiated in the `hello` handshake.
 
 ## [Unreleased]
 
+### Added
+
+- **`QLI_INPUT_VIZ=1` for the full probe**: shows the input overlay from
+  startup without a client connection, honoring the same env contract as
+  the standalone `libqtinspectorinputviz.so` (where the visualizer still
+  defaults to on). New ctest case `ProbeIntegration_vizenv`.
+
 ## [0.3.0] — 2026-11-07
 
 ### Added

@@ -13,6 +13,9 @@ features against the live process:
     readonly  QLI_READONLY=1: read commands pass, every mutating command is
               rejected with a clear error.
     noauth    QLI_TOKEN explicitly empty: development no-auth mode works.
+    vizenv    QLI_INPUT_VIZ=1 (via --set): the overlay is shown before any
+              client connects, interaction still works, protocol can
+              disable it again.
 
 Usage (driven by CTest):
     python3 integration_probe.py --demo <quickdemo> --probe-so <lib...so>
@@ -59,7 +62,7 @@ def check(name, cond, detail=""):
 class Target:
     """quickdemo + probe, with the app's stderr captured in the background."""
 
-    def __init__(self, demo, probe_so, port, mode):
+    def __init__(self, demo, probe_so, port, mode, extra_env=None):
         env = dict(os.environ)
         env["QT_QPA_PLATFORM"] = "offscreen"
         env["QLI_PORT"] = str(port)
@@ -67,7 +70,7 @@ class Target:
         # preloaded BEFORE the probe or the target dies at startup.
         extra = os.environ.get("QLI_TEST_PRELOAD_EXTRA", "")
         env["LD_PRELOAD"] = (extra + ":" + probe_so) if extra else probe_so
-        if mode == "basic":
+        if mode in ("basic", "vizenv"):
             env.pop("QLI_TOKEN", None)      # exercise auto-generation
             env.pop("QLI_READONLY", None)
         elif mode == "readonly":
@@ -78,6 +81,10 @@ class Target:
             env.pop("QLI_READONLY", None)
         else:
             raise ValueError(mode)
+        # Test-controlled overrides (e.g. QLI_INPUT_VIZ=1 for vizenv),
+        # applied after the mode setup so they win.
+        for key, value in (extra_env or {}).items():
+            env[key] = value
 
         self.proc = subprocess.Popen(
             [os.path.abspath(demo)], cwd=os.path.dirname(os.path.abspath(demo)),
@@ -366,13 +373,40 @@ def test_noauth(target, port, profile=None):
     check("hello without token ok", res.get("ok") is True, str(res)[:200])
 
 
+def test_vizenv(target, port, profile=None):
+    # QLI_INPUT_VIZ=1 was passed in the target's environment: the overlay
+    # must be up before any client speaks to the probe.
+    cli = ProbeClient(port=port, token=target.token, timeout=10, lazy=False)
+    res = cli.check(cli.command("setInputVisualizer"))
+    check("visualizer enabled at startup via QLI_INPUT_VIZ",
+          res.get("enabled") is True, str(res))
+
+    # The shown overlay must not swallow normal interaction.
+    cli.check(cli.command("click", objectName="clickButton"))
+    time.sleep(0.6)
+    text = cli.get_property("text", {"objectName": "clickButton"})
+    check("app responsive with overlay shown",
+          isinstance(text, str) and "Clicked 1 times" in text, str(text))
+
+    shot = cli.check(cli.command("screenshot"))
+    png = base64.b64decode(shot.get("png", ""))
+    check("screenshot captured with overlay", len(png) > 1000
+          and png[:4] == b"\x89PNG", f"{len(png)} bytes")
+
+    # And the protocol can still turn it off again.
+    res = cli.check(cli.command("setInputVisualizer", enabled=False))
+    check("disable via protocol", res.get("enabled") is False, str(res))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--demo", required=True)
     ap.add_argument("--probe-so", required=True)
     ap.add_argument("--port", type=int, required=True)
-    ap.add_argument("--mode", choices=["basic", "readonly", "noauth"],
+    ap.add_argument("--mode", choices=["basic", "readonly", "noauth", "vizenv"],
                     required=True)
+    ap.add_argument("--set", action="append", default=[], metavar="KEY=VALUE",
+                    help="extra environment for the target; repeatable")
     ap.add_argument("--profile", choices=list(PROFILES.keys()), default="demo")
     args = ap.parse_args()
 
@@ -383,14 +417,23 @@ def main():
         print(f"SKIP: probe library not found: {args.probe_so}")
         return 0
 
-    target = Target(args.demo, args.probe_so, args.port, args.mode)
+    extra_env = {}
+    for pair in args.set:
+        key, sep, value = pair.partition("=")
+        if not sep:
+            print(f"error: --set expects KEY=VALUE, got: {pair}")
+            return 2
+        extra_env[key] = value
+
+    target = Target(args.demo, args.probe_so, args.port, args.mode, extra_env)
     try:
         if not target.wait_ready():
             check("probe started", False, target.log[-2000:])
             return 1
         check("probe started", True)
         {"basic": test_basic, "readonly": test_readonly,
-         "noauth": test_noauth}[args.mode](target, args.port, args.profile)
+         "noauth": test_noauth, "vizenv": test_vizenv}[args.mode](
+            target, args.port, args.profile)
     finally:
         target.stop()
 

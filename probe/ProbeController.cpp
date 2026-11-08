@@ -165,6 +165,11 @@ void ProbeController::start()
         qgetenv("QLI_INPUT_VIZ_MULTITOUCH") == QByteArray("1"));
     m_visualizer->setMonkeyMode(
         qgetenv("QLI_INPUT_VIZ_MONKEY") == QByteArray("1"));
+    // Startup opt-in for the overlay, so the probe honors the same
+    // QLI_INPUT_VIZ contract as the standalone inputviz library (where
+    // the default is on and "0" disables). The probe stays fail-safe:
+    // off unless explicitly requested.
+    m_visualizer->setEnabled(qgetenv("QLI_INPUT_VIZ") == QByteArray("1"));
     m_perfMonitor = new PerfMonitor(this);
     m_perfMonitor->start();
     m_picker = new Picker(this);
